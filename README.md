@@ -1,6 +1,6 @@
 # rag-bot-py
 
-RAG chatbot that indexes your documents and answers questions based on them. Uses ChromaDB for vector storage, HuggingFace embeddings (local), and any LLM via OpenRouter.
+RAG chatbot that indexes your documents and answers questions based on them. Uses ChromaDB for vector storage, HuggingFace embeddings (local), and any LLM via OpenRouter. Supports both a CLI and a Telegram bot interface.
 
 ## Setup
 
@@ -15,6 +15,8 @@ Fill in `.env` — at minimum you need `OPENROUTER_API_KEY` and `OPENROUTER_MODE
 
 ## Usage
 
+### CLI
+
 Index files or directories:
 
 ```bash
@@ -26,6 +28,18 @@ Ask a question:
 ```bash
 uv run python src/main.py ask "What does the refund policy say?"
 ```
+
+### Telegram bot
+
+1. Get a bot token from [@BotFather](https://t.me/BotFather)
+2. Add `TELEGRAM_BOT_TOKEN=...` to your `.env`
+3. Start the bot:
+
+```bash
+uv run python src/main.py bot
+```
+
+The bot handles `/start`, `/help`, and answers any text message using the RAG pipeline.
 
 ## Supported formats
 
@@ -39,6 +53,7 @@ All settings are in `.env`. See `.env.example` for the full list with defaults.
 |---|---|---|
 | `OPENROUTER_API_KEY` | — | Required |
 | `OPENROUTER_MODEL` | — | Required |
+| `TELEGRAM_BOT_TOKEN` | — | Required for `bot` command |
 | `OPENROUTER_TEMPERATURE` | `0.0` | Higher = more creative answers |
 | `HUGGINGFACE_MODEL` | `all-MiniLM-L6-v2` | Embedding model |
 | `HUGGINGFACE_DEVICE` | `cpu` | Set to `cuda` for GPU |

@@ -9,6 +9,8 @@ class Config(BaseSettings):
     huggingface_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     huggingface_device: str = "cpu"
 
+    telegram_bot_token: SecretStr | None = None
+
     openrouter_api_key: SecretStr
     openrouter_model: str
     openrouter_temperature: float = 0.0

@@ -7,39 +7,24 @@ app = typer.Typer()
 console = Console()
 
 
-def _make_vector_store(config: Config):
-    from langchain_huggingface import HuggingFaceEmbeddings
-    from langchain_chroma import Chroma
-
-    with console.status("[bold blue]Loading embedding model..."):
-        embeddings = HuggingFaceEmbeddings(
-            model_name=config.huggingface_model,
-            model_kwargs={"device": config.huggingface_device},
-        )
-
-    return Chroma(
-        embedding_function=embeddings,
-        collection_name=config.chroma_collection_name,
-        persist_directory=str(config.chroma_persist_directory),
-    )
-
-
 @app.command()
 def index(files: list[Path]):
     """Index files into the vector store."""
     from langchain_text_splitters import RecursiveCharacterTextSplitter
-    from rag.indexer import Indexer
+    from rag.indexer import Indexer, IndexProgress
+    from rag.agent import make_vector_store
+    from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn
 
     config = Config()
-    vector_store = _make_vector_store(config)
+
+    with console.status("[bold blue]Loading embedding model..."):
+        vector_store = make_vector_store(config)
 
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=config.splitter_chunk_size,
         chunk_overlap=config.splitter_chunk_overlap,
         add_start_index=config.splitter_add_start_index,
     )
-    from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn
-    from rag.indexer import IndexProgress
 
     indexer = Indexer(vector_store, splitter, batch_size=config.indexer_batch_size)
     progress_bar: Progress | None = None
@@ -75,44 +60,18 @@ def index(files: list[Path]):
 @app.command()
 def ask(question: str):
     """Ask a question to the RAG agent."""
-    from langchain_openrouter import ChatOpenRouter
-    from langchain.tools import tool
-    from langchain.agents import create_agent
-
-    config = Config()
-    vector_store = _make_vector_store(config)
-
-    llm = ChatOpenRouter(
-        model=config.openrouter_model,
-        temperature=config.openrouter_temperature,
-        openrouter_api_key=config.openrouter_api_key.get_secret_value(),
-    )
-
-    @tool(response_format="content_and_artifact")
-    def retrieve_context(query: str):
-        """Find relevant information to answer the question."""
-        retrieved_docs = vector_store.similarity_search_with_score(query, k=config.retriever_k)
-        if config.retriever_score_threshold is not None:
-            retrieved_docs = [
-                (doc, score) for doc, score in retrieved_docs
-                if score <= config.retriever_score_threshold
-            ]
-        serialized = "\n\n".join(
-            f"Source: {doc.metadata}\nContent: {doc.page_content}\nScore: {score}"
-            for doc, score in retrieved_docs
-        )
-        return serialized, retrieved_docs
-
-    agent = create_agent(
-        llm,
-        tools=[retrieve_context],
-        system_prompt=config.agent_system_prompt,
-    )
-
+    from rag.agent import make_vector_store, make_agent
     from langchain_core.messages import AIMessage, ToolMessage, HumanMessage
     from rich.live import Live
     from rich.panel import Panel
     from rich.markdown import Markdown
+
+    config = Config()
+
+    with console.status("[bold blue]Loading embedding model..."):
+        vector_store = make_vector_store(config)
+
+    agent = make_agent(config, vector_store)
 
     last_content = ""
     with Live(console=console, refresh_per_second=8) as live:
@@ -134,6 +93,15 @@ def ask(question: str):
                     live.update(Panel(Markdown(msg.content), title="[green]Answer", border_style="green"))
 
     console.print()
+
+
+@app.command()
+def bot():
+    """Start the Telegram bot."""
+    import asyncio
+    from telegram.bot import main as bot_main
+
+    asyncio.run(bot_main())
 
 
 if __name__ == "__main__":
