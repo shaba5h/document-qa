@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass
 from typing import Callable
+from langchain_core.documents import Document
 from langchain_core.vectorstores import VectorStore
 from langchain_text_splitters import TextSplitter
 from pathlib import Path
@@ -58,10 +60,20 @@ class Indexer:
         if not chunks:
             return 0
 
+        ids = [self._chunk_id(chunk) for chunk in chunks]
+
         for i in range(0, len(chunks), self._batch_size):
             batch = chunks[i : i + self._batch_size]
-            self._vector_store.add_documents(batch)
+            batch_ids = ids[i : i + self._batch_size]
+            self._vector_store.add_documents(batch, ids=batch_ids)
             progress.chunks_indexed += len(batch)
             notify(progress)
 
         return len(chunks)
+
+    @staticmethod
+    def _chunk_id(chunk: Document) -> str:
+        source = chunk.metadata.get("source", "")
+        start = chunk.metadata.get("start_index", 0)
+        content = f"{source}:{start}"
+        return hashlib.sha256(content.encode()).hexdigest()
