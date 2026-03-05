@@ -1,6 +1,6 @@
-# rag-bot-py
+# document-qa
 
-RAG chatbot that indexes your documents and answers questions based on them. Uses ChromaDB for vector storage, HuggingFace embeddings (local), and any LLM via OpenRouter. Supports both a CLI and a Telegram bot interface.
+A Q&A system for document collections using RAG (Retrieval-Augmented Generation). Indexes your documents and answers questions based on retrieved context. Uses ChromaDB for vector storage, HuggingFace embeddings (local), and OpenRouter for LLMs. Supports both CLI and Telegram bot interfaces.
 
 ## Setup
 

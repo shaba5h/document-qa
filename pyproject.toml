@@ -1,7 +1,7 @@
 [project]
-name = "rag-bot-py"
+name = "document-qa"
 version = "0.1.0"
-description = "Add your description here"
+description = "Q&A system for document collections using RAG (Retrieval-Augmented Generation). Supports CLI and Telegram bot interfaces."
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
 dependencies = [
