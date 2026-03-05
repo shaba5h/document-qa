@@ -1,0 +1,21 @@
+[project]
+name = "rag-bot-py"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+dependencies = [
+    "langchain",
+    "langchain-chroma",
+    "langchain-huggingface",
+    "langchain-text-splitters",
+    "sentence-transformers",
+    "langchain-docling",
+    "langchain-community>=0.4.1",
+    "python-dotenv>=1.2.2",
+    "langchain-openai>=1.1.10",
+    "langchain-openrouter>=0.0.2",
+    "pydantic-settings>=2.13.1",
+    "pydantic>=2.12.5",
+    "typer>=0.21.2",
+]

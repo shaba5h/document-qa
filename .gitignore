@@ -1,0 +1,30 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# MacOs
+.DS_Store
+
+# ChromaDB
+chroma
+
+# Environment variables
+.env
+
+# Agents 
+AGENTS.md
+CLAUDE.md
+
+# IDEs
+.claude
+.cursor
+.vscode
+.idea
+.gemini
