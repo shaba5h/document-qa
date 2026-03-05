@@ -96,6 +96,106 @@ def ask(question: str):
 
 
 @app.command()
+def stats():
+    """Show vector store statistics."""
+    config = Config()
+
+    with console.status("[bold blue]Loading embedding model..."):
+        from rag.agent import make_vector_store
+
+        vector_store = make_vector_store(config)
+
+    collection = vector_store._collection
+    total = collection.count()
+    sources: set[str] = set()
+    if total > 0:
+        meta = collection.get(include=["metadatas"])["metadatas"]
+        sources = {m["source"] for m in meta if "source" in m}
+
+    console.print(f"[bold]Collection:[/]        {config.chroma_collection_name}")
+    console.print(f"[bold]Persist directory:[/] {config.chroma_persist_directory}")
+    console.print(f"[bold]Total chunks:[/]      {total}")
+    console.print(f"[bold]Unique sources:[/]    {len(sources)}")
+
+
+@app.command(name="list")
+def list_sources():
+    """List indexed source files with chunk counts."""
+    from collections import Counter
+    from rich.table import Table
+
+    config = Config()
+
+    with console.status("[bold blue]Loading embedding model..."):
+        from rag.agent import make_vector_store
+
+        vector_store = make_vector_store(config)
+
+    collection = vector_store._collection
+    total = collection.count()
+
+    if total == 0:
+        console.print("[yellow]No documents indexed.[/]")
+        return
+
+    meta = collection.get(include=["metadatas"])["metadatas"]
+    counts = Counter(m.get("source", "<unknown>") for m in meta)
+
+    table = Table(title="Indexed Sources")
+    table.add_column("Source", style="cyan")
+    table.add_column("Chunks", justify="right", style="green")
+
+    for source, count in sorted(counts.items()):
+        table.add_row(source, str(count))
+
+    table.add_section()
+    table.add_row("[bold]Total[/]", f"[bold]{total}[/]")
+    console.print(table)
+
+
+@app.command()
+def remove(sources: list[str]):
+    """Remove all chunks matching the given source path(s)."""
+    config = Config()
+
+    with console.status("[bold blue]Loading embedding model..."):
+        from rag.agent import make_vector_store
+
+        vector_store = make_vector_store(config)
+
+    collection = vector_store._collection
+
+    for source in sources:
+        result = collection.get(where={"source": source})
+        ids = result["ids"]
+        if not ids:
+            console.print(f"[yellow]No chunks found for:[/] {source}")
+            continue
+        collection.delete(ids=ids)
+        console.print(f"[green]Removed {len(ids)} chunk(s) for:[/] {source}")
+
+
+@app.command()
+def reset(yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt")):
+    """Delete and recreate the entire collection."""
+    config = Config()
+
+    if not yes:
+        confirm = typer.confirm("This will delete ALL indexed documents. Continue?")
+        if not confirm:
+            raise typer.Abort()
+
+    with console.status("[bold blue]Loading embedding model..."):
+        from rag.agent import make_vector_store
+
+        vector_store = make_vector_store(config)
+
+    client = vector_store._collection._client
+    client.delete_collection(config.chroma_collection_name)
+    console.print("[bold green]Collection reset.[/] All documents removed.")
+
+
+@app.command()
 def bot():
     """Start the Telegram bot."""
     import asyncio
