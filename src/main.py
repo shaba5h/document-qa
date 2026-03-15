@@ -10,7 +10,7 @@ console = Console()
 @app.command()
 def index(files: list[Path]):
     """Index files into the vector store."""
-    from langchain_text_splitters import RecursiveCharacterTextSplitter
+    from rag.splitter import MarkdownAwareSplitter
     from rag.indexer import Indexer, IndexProgress
     from rag.agent import make_vector_store
     from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn
@@ -20,7 +20,7 @@ def index(files: list[Path]):
     with console.status("[bold blue]Loading embedding model..."):
         vector_store = make_vector_store(config)
 
-    splitter = RecursiveCharacterTextSplitter(
+    splitter = MarkdownAwareSplitter(
         chunk_size=config.splitter_chunk_size,
         chunk_overlap=config.splitter_chunk_overlap,
         add_start_index=config.splitter_add_start_index,

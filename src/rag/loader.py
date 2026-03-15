@@ -8,7 +8,6 @@ from langchain_core.document_loaders import BaseLoader
 from langchain_core.documents import Document
 
 from langchain_community.document_loaders import TextLoader
-from langchain_docling.loader import DoclingLoader
 
 LoaderFactory = Callable[[str], BaseLoader]
 
@@ -16,13 +15,13 @@ logger = logging.getLogger(__name__)
 
 
 class UniversalDocumentLoader(BaseLoader):
-    """LangChain-compatible loader that handles multiple file types and directories.
+    """LangChain-compatible loader that handles txt and md files and directories.
 
     Args:
         paths:         One or more file/directory paths.
         loaders:       A dictionary mapping file extensions (without dots) to LangChain
                        loader factories. Example:
-                       {"pdf": DoclingLoader, "txt": lambda p: TextLoader(p, encoding="utf-8")}
+                       {"txt": lambda p: TextLoader(p, encoding="utf-8")}
         recursive:     Traverse directories recursively (default: True).
     """
 
@@ -35,15 +34,8 @@ class UniversalDocumentLoader(BaseLoader):
     ) -> None:
         if not loaders:
             loaders = {
-                "pdf": DoclingLoader,
-                "docx": DoclingLoader,
-                "pptx": DoclingLoader,
-                "html": DoclingLoader,
-                "md": DoclingLoader,
-                "xlsx": DoclingLoader,
-                "asciidoc": DoclingLoader,
-                "csv": DoclingLoader,
                 "txt": lambda p: TextLoader(p, encoding="utf-8"),
+                "md":  lambda p: TextLoader(p, encoding="utf-8"),
             }
 
         if isinstance(paths, Path):
