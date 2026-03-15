@@ -10,21 +10,62 @@ from langchain_text_splitters import MarkdownHeaderTextSplitter
 _MD_HEADERS = [("#", "h1"), ("##", "h2"), ("###", "h3")]
 
 
+def _segment(text: str) -> list[tuple[str, bool]]:
+    """Split text into (content, is_table) segments.
+
+    A table segment is a run of consecutive lines starting with '|'.
+    Everything else is a text segment.
+    """
+    if not text:
+        return []
+
+    segments: list[tuple[str, bool]] = []
+    current_lines: list[str] = []
+    current_is_table: bool | None = None
+
+    for line in text.split("\n"):
+        is_table = line.strip().startswith("|")
+        if current_is_table is None:
+            current_is_table = is_table
+        if is_table != current_is_table:
+            segments.append(("\n".join(current_lines), current_is_table))
+            current_lines = []
+            current_is_table = is_table
+        current_lines.append(line)
+
+    if current_lines:
+        segments.append(("\n".join(current_lines), current_is_table or False))
+
+    return segments
+
+
 class MarkdownAwareSplitter(TextSplitter):
-    """TextSplitter that applies a two-stage markdown-aware pipeline for .md files
-    and standard character splitting for .txt and other plain-text files.
+    """TextSplitter with markdown-aware splitting for .md files.
 
     For .md files:
-    1. Split by headers (MarkdownHeaderTextSplitter) to produce semantically scoped sections
-    2. Inject header breadcrumb into each section's page_content for richer embeddings
-    3. Split by character count (RecursiveCharacterTextSplitter) for final chunk sizing
-       with file-scoped start_index to ensure unique chunk IDs
+    1. Split by headers (MarkdownHeaderTextSplitter) → semantically scoped sections
+    2. Inject header breadcrumb into page_content for richer embeddings
+    3. Within each section, detect markdown tables and keep them as atomic chunks
+       (never split mid-table, even if the table exceeds chunk_size)
+    4. Split non-table text by character count (RecursiveCharacterTextSplitter)
+    5. Track file-scoped start_index across all sections for unique chunk IDs
 
-    For other files: standard RecursiveCharacterTextSplitter only.
+    For .txt files: standard RecursiveCharacterTextSplitter only.
     """
 
-    def __init__(self, chunk_size: int = 1000, chunk_overlap: int = 200, add_start_index: bool = True, **kwargs: Any) -> None:
-        super().__init__(chunk_size=chunk_size, chunk_overlap=chunk_overlap, add_start_index=add_start_index, **kwargs)
+    def __init__(
+        self,
+        chunk_size: int = 1000,
+        chunk_overlap: int = 200,
+        add_start_index: bool = True,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            add_start_index=add_start_index,
+            **kwargs,
+        )
         self._char_splitter = RecursiveCharacterTextSplitter(
             chunk_size=chunk_size,
             chunk_overlap=chunk_overlap,
@@ -50,28 +91,48 @@ class MarkdownAwareSplitter(TextSplitter):
         return result
 
     def _split_markdown(self, doc: Document) -> list[Document]:
-        # Stage 1: split by headers
         sections = self._header_splitter.split_text(doc.page_content)
-
-        # Stage 2: inject breadcrumb and split by size with file-scoped start_index
         chunks: list[Document] = []
         section_offset = 0
 
         for section in sections:
-            # Build breadcrumb from non-empty header metadata
-            crumb_parts = [section.metadata[k] for k in ("h1", "h2", "h3") if section.metadata.get(k)]
-            enriched_content = " | ".join(crumb_parts) + "\n\n" + section.page_content if crumb_parts else section.page_content
+            # Build breadcrumb from non-empty header levels
+            crumb_parts = [
+                section.metadata[k]
+                for k in ("h1", "h2", "h3")
+                if section.metadata.get(k)
+            ]
+            enriched = (
+                " | ".join(crumb_parts) + "\n\n" + section.page_content
+                if crumb_parts
+                else section.page_content
+            )
 
-            # Split the enriched section by character count
-            sub_chunks = self._char_splitter.create_documents([enriched_content])
+            base_meta = {**doc.metadata, **section.metadata}
+            within_offset = 0
 
-            # Merge metadata: original doc metadata + header metadata, then offset start_index
-            for chunk in sub_chunks:
-                merged_meta = {**doc.metadata, **section.metadata}
-                local_start = chunk.metadata.get("start_index", 0)
-                merged_meta["start_index"] = section_offset + local_start
-                chunks.append(Document(page_content=chunk.page_content, metadata=merged_meta))
+            for segment_text, is_table in _segment(enriched):
+                if not segment_text.strip():
+                    within_offset += len(segment_text)
+                    continue
 
-            section_offset += len(enriched_content)
+                if is_table:
+                    # Tables are atomic — one chunk regardless of size
+                    chunks.append(Document(
+                        page_content=segment_text,
+                        metadata={**base_meta, "start_index": section_offset + within_offset},
+                    ))
+                else:
+                    # Regular text — split by character count
+                    for chunk in self._char_splitter.create_documents([segment_text]):
+                        local_start = chunk.metadata.get("start_index", 0)
+                        chunks.append(Document(
+                            page_content=chunk.page_content,
+                            metadata={**base_meta, "start_index": section_offset + within_offset + local_start},
+                        ))
+
+                within_offset += len(segment_text)
+
+            section_offset += len(enriched)
 
         return chunks
