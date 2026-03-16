@@ -196,6 +196,50 @@ def reset(yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation
 
 
 @app.command()
+def retrieve(
+    query: str,
+    k: int = typer.Option(None, "--k", "-k", help="Number of chunks to retrieve (default: config value)"),
+):
+    """Retrieve chunks from the vector store and display them for manual evaluation."""
+    from rag.agent import make_vector_store
+    from rich.table import Table
+    from rich.text import Text
+    from rich.rule import Rule
+
+    config = Config()
+    effective_k = k if k is not None else config.retriever_k
+
+    with console.status("[bold blue]Loading embedding model..."):
+        vector_store = make_vector_store(config)
+
+    results = vector_store.similarity_search_with_score(query, k=effective_k)
+
+    if not results:
+        console.print("[yellow]No results found.[/]")
+        return
+
+    console.print(Rule(f"[bold]Query:[/] {query}"))
+    console.print()
+
+    for i, (doc, score) in enumerate(results, 1):
+        meta = doc.metadata
+        source = Path(meta.get("source", "unknown")).name
+        section = " > ".join(meta[key] for key in ("h1", "h2", "h3") if meta.get(key))
+
+        header = f"[bold cyan]#{i}[/]  [green]{source}[/]"
+        if section:
+            header += f"  [dim]{section}[/]"
+        header += f"  [yellow]score={score:.4f}[/]"
+        console.print(header)
+
+        if "table" in meta:
+            console.print("[dim italic]  (row from table — full table in context)[/]")
+
+        console.print(doc.page_content)
+        console.print()
+
+
+@app.command()
 def bot():
     """Start the Telegram bot."""
     import asyncio
