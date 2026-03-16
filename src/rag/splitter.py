@@ -1,82 +1,135 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any
 
+from bs4 import BeautifulSoup
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter, TextSplitter
 from langchain_text_splitters import MarkdownHeaderTextSplitter
 
 _MD_HEADERS = [("#", "h1"), ("##", "h2"), ("###", "h3")]
+_HTML_TABLE_RE = re.compile(r"<table[\s\S]*?</table>", re.IGNORECASE)
 
 
 def _segment(text: str) -> list[tuple[str, bool]]:
     """Split text into (content, is_table) segments.
 
-    A table segment is a run of consecutive lines starting with '|'.
+    Detects HTML <table>...</table> blocks as table segments.
     Everything else is a text segment.
     """
-    if not text:
-        return []
-
     segments: list[tuple[str, bool]] = []
-    current_lines: list[str] = []
-    current_is_table: bool | None = None
+    last_end = 0
 
-    for line in text.split("\n"):
-        is_table = line.strip().startswith("|")
-        if current_is_table is None:
-            current_is_table = is_table
-        if is_table != current_is_table:
-            segments.append(("\n".join(current_lines), current_is_table))
-            current_lines = []
-            current_is_table = is_table
-        current_lines.append(line)
+    for match in _HTML_TABLE_RE.finditer(text):
+        before = text[last_end:match.start()]
+        if before:
+            segments.append((before, False))
+        segments.append((match.group(), True))
+        last_end = match.end()
 
-    if current_lines:
-        segments.append(("\n".join(current_lines), current_is_table or False))
+    tail = text[last_end:]
+    if tail:
+        segments.append((tail, False))
 
-    return segments
+    return segments or [(text, False)]
 
 
-def _parse_table(text: str) -> tuple[list[str], list[list[str]]] | None:
-    """Parse a markdown table into (headers, data_rows).
+def _parse_html_table(html: str) -> tuple[list[str], list[list[str]]] | None:
+    """Parse an HTML table into (headers, data_rows), respecting colspan and rowspan.
 
-    Returns None if the table has fewer than 3 lines or can't be parsed.
+    Multi-row headers are collapsed into composite column names joined with ' > '
+    (e.g. "Доза внесения, кг/га > Азот"). A row is considered a header row if it
+    belongs to <thead> or contains at least one <th> cell.
+
+    Uses a grid-fill approach: each cell is placed at the next unoccupied (row, col)
+    position, and spans are pre-filled so downstream rows see the correct value.
+    Returns None if the table cannot be parsed or has no data rows.
     """
-    lines = [l for l in text.strip().split("\n") if l.strip()]
-    if len(lines) < 3:
+    soup = BeautifulSoup(html, "html.parser")
+    table = soup.find("table")
+    if not table:
         return None
 
-    def parse_row(line: str) -> list[str]:
-        return [cell.strip() for cell in line.strip().strip("|").split("|")]
+    all_rows = table.find_all("tr")
+    grid: dict[tuple[int, int], str] = {}
+    is_header_row: dict[int, bool] = {}
 
-    headers = parse_row(lines[0])
-    # lines[1] is the separator row (|---|---|), skip it
-    data_rows = [parse_row(l) for l in lines[2:] if l.strip()]
+    for r_idx, row in enumerate(all_rows):
+        # A row is a header row if it's in <thead> or contains any <th>
+        in_thead = row.parent and row.parent.name == "thead"
+        has_th = bool(row.find("th"))
+        is_header_row[r_idx] = bool(in_thead or has_th)
+
+        c_idx = 0
+        for cell in row.find_all(["td", "th"]):
+            while (r_idx, c_idx) in grid:
+                c_idx += 1
+
+            value = cell.get_text(separator=" ", strip=True)
+            colspan = int(cell.get("colspan", 1))
+            rowspan = int(cell.get("rowspan", 1))
+
+            for rs in range(rowspan):
+                for cs in range(colspan):
+                    grid[(r_idx + rs, c_idx + cs)] = value
+
+            c_idx += colspan
+
+    if not grid:
+        return None
+
+    max_row = max(r for r, _ in grid)
+    max_col = max(c for _, c in grid)
+
+    header_row_indices = [r for r in range(max_row + 1) if is_header_row.get(r)]
+    data_row_indices = [r for r in range(max_row + 1) if not is_header_row.get(r)]
+
+    if not header_row_indices or not data_row_indices:
+        return None
+
+    # Build composite column headers from all header rows per column
+    # De-duplicate adjacent repeated values (from rowspan fill) within a column
+    headers: list[str] = []
+    for c in range(max_col + 1):
+        parts: list[str] = []
+        prev = None
+        for r in header_row_indices:
+            v = grid.get((r, c), "")
+            if v and v != prev:
+                parts.append(v)
+            prev = v
+        headers.append(" > ".join(parts) if parts else "")
+
+    data_rows = [
+        [grid.get((r, c), "") for c in range(max_col + 1)]
+        for r in data_row_indices
+    ]
+
     return headers, data_rows
 
 
 def _table_row_chunks(
-    table_text: str,
+    table_html: str,
     base_meta: dict,
     breadcrumb: str,
     start_index: int,
 ) -> list[Document]:
-    """Convert a markdown table into one Document per data row.
+    """Convert an HTML table into one Document per data row.
 
     Each chunk's page_content is a natural-language sentence:
         "Header1: Value1. Header2: Value2. ..."
     prefixed with the section breadcrumb for embedding context.
 
-    The full original table is stored in metadata["table"] so the LLM
+    The full original HTML table is stored in metadata["table"] so the LLM
     receives complete context when the chunk is retrieved.
     """
-    parsed = _parse_table(table_text)
+    parsed = _parse_html_table(table_html)
     if parsed is None:
-        # Unparseable table — fall back to single atomic chunk
+        # Unparseable — fall back to single chunk with raw HTML
         return [Document(
-            page_content=table_text,
+            page_content=breadcrumb + "\n\n" + table_html if breadcrumb else table_html,
             metadata={**base_meta, "start_index": start_index},
         )]
 
@@ -98,7 +151,7 @@ def _table_row_chunks(
             metadata={
                 **base_meta,
                 "start_index": start_index + i,
-                "table": table_text,
+                "table": table_html,
             },
         ))
 
@@ -110,11 +163,13 @@ class MarkdownAwareSplitter(TextSplitter):
 
     For .md files:
     1. Split by headers → semantically scoped sections with breadcrumb context
-    2. Within each section, detect markdown tables and split them per row:
-       - page_content: "Header1: Value1. Header2: Value2." (natural language for embedding)
-       - metadata["table"]: full original table (passed to LLM as context)
-    3. Split non-table text by character count (RecursiveCharacterTextSplitter)
-    4. Track file-scoped start_index for unique chunk IDs
+    2. Detect HTML <table> blocks within each section
+    3. Each table is split per row into natural-language sentences:
+       - colspan and rowspan are resolved via grid-fill
+       - page_content: "Header1: Value1. Header2: Value2." (for embedding)
+       - metadata["table"]: full original HTML table (passed to LLM as context)
+    4. Non-table text is split by character count (RecursiveCharacterTextSplitter)
+    5. File-scoped start_index ensures unique chunk IDs
 
     For .txt files: standard RecursiveCharacterTextSplitter only.
     """
@@ -142,7 +197,6 @@ class MarkdownAwareSplitter(TextSplitter):
             strip_headers=False,
         )
 
-    # Required by TextSplitter abstract base
     def split_text(self, text: str) -> list[str]:
         return self._char_splitter.split_text(text)
 
@@ -180,7 +234,7 @@ class MarkdownAwareSplitter(TextSplitter):
 
                 if is_table:
                     chunks.extend(_table_row_chunks(
-                        table_text=segment_text,
+                        table_html=segment_text,
                         base_meta=base_meta,
                         breadcrumb=breadcrumb,
                         start_index=section_offset + within_offset,
