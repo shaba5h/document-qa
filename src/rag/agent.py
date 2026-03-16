@@ -36,10 +36,20 @@ def make_agent(config: Config, vector_store):
                 (doc, score) for doc, score in retrieved_docs
                 if score <= config.retriever_score_threshold
             ]
-        serialized = "\n\n".join(
-            f"Source: {doc.metadata}\nContent: {doc.page_content}\nScore: {score}"
-            for doc, score in retrieved_docs
-        )
+        def _format(doc, score):
+            meta = doc.metadata
+            source = meta.get("source", "unknown")
+            section = " > ".join(
+                meta[k] for k in ("h1", "h2", "h3") if meta.get(k)
+            )
+            parts = [f"Source: {source}" + (f" ({section})" if section else "")]
+            parts.append(f"Content: {doc.page_content}")
+            if "table" in meta:
+                parts.append(f"Full table:\n{meta['table']}")
+            parts.append(f"Score: {score}")
+            return "\n".join(parts)
+
+        serialized = "\n\n".join(_format(doc, score) for doc, score in retrieved_docs)
         return serialized, retrieved_docs
 
     return create_agent(

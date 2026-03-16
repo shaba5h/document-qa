@@ -39,16 +39,82 @@ def _segment(text: str) -> list[tuple[str, bool]]:
     return segments
 
 
+def _parse_table(text: str) -> tuple[list[str], list[list[str]]] | None:
+    """Parse a markdown table into (headers, data_rows).
+
+    Returns None if the table has fewer than 3 lines or can't be parsed.
+    """
+    lines = [l for l in text.strip().split("\n") if l.strip()]
+    if len(lines) < 3:
+        return None
+
+    def parse_row(line: str) -> list[str]:
+        return [cell.strip() for cell in line.strip().strip("|").split("|")]
+
+    headers = parse_row(lines[0])
+    # lines[1] is the separator row (|---|---|), skip it
+    data_rows = [parse_row(l) for l in lines[2:] if l.strip()]
+    return headers, data_rows
+
+
+def _table_row_chunks(
+    table_text: str,
+    base_meta: dict,
+    breadcrumb: str,
+    start_index: int,
+) -> list[Document]:
+    """Convert a markdown table into one Document per data row.
+
+    Each chunk's page_content is a natural-language sentence:
+        "Header1: Value1. Header2: Value2. ..."
+    prefixed with the section breadcrumb for embedding context.
+
+    The full original table is stored in metadata["table"] so the LLM
+    receives complete context when the chunk is retrieved.
+    """
+    parsed = _parse_table(table_text)
+    if parsed is None:
+        # Unparseable table — fall back to single atomic chunk
+        return [Document(
+            page_content=table_text,
+            metadata={**base_meta, "start_index": start_index},
+        )]
+
+    headers, data_rows = parsed
+    chunks: list[Document] = []
+
+    for i, row in enumerate(data_rows):
+        pairs = [
+            f"{h}: {v}"
+            for h, v in zip(headers, row)
+            if h.strip() and v.strip()
+        ]
+        row_text = ". ".join(pairs)
+        if breadcrumb:
+            row_text = breadcrumb + "\n\n" + row_text
+
+        chunks.append(Document(
+            page_content=row_text,
+            metadata={
+                **base_meta,
+                "start_index": start_index + i,
+                "table": table_text,
+            },
+        ))
+
+    return chunks
+
+
 class MarkdownAwareSplitter(TextSplitter):
     """TextSplitter with markdown-aware splitting for .md files.
 
     For .md files:
-    1. Split by headers (MarkdownHeaderTextSplitter) → semantically scoped sections
-    2. Inject header breadcrumb into page_content for richer embeddings
-    3. Within each section, detect markdown tables and keep them as atomic chunks
-       (never split mid-table, even if the table exceeds chunk_size)
-    4. Split non-table text by character count (RecursiveCharacterTextSplitter)
-    5. Track file-scoped start_index across all sections for unique chunk IDs
+    1. Split by headers → semantically scoped sections with breadcrumb context
+    2. Within each section, detect markdown tables and split them per row:
+       - page_content: "Header1: Value1. Header2: Value2." (natural language for embedding)
+       - metadata["table"]: full original table (passed to LLM as context)
+    3. Split non-table text by character count (RecursiveCharacterTextSplitter)
+    4. Track file-scoped start_index for unique chunk IDs
 
     For .txt files: standard RecursiveCharacterTextSplitter only.
     """
@@ -96,17 +162,13 @@ class MarkdownAwareSplitter(TextSplitter):
         section_offset = 0
 
         for section in sections:
-            # Build breadcrumb from non-empty header levels
             crumb_parts = [
                 section.metadata[k]
                 for k in ("h1", "h2", "h3")
                 if section.metadata.get(k)
             ]
-            enriched = (
-                " | ".join(crumb_parts) + "\n\n" + section.page_content
-                if crumb_parts
-                else section.page_content
-            )
+            breadcrumb = " | ".join(crumb_parts)
+            enriched = (breadcrumb + "\n\n" + section.page_content) if breadcrumb else section.page_content
 
             base_meta = {**doc.metadata, **section.metadata}
             within_offset = 0
@@ -117,13 +179,13 @@ class MarkdownAwareSplitter(TextSplitter):
                     continue
 
                 if is_table:
-                    # Tables are atomic — one chunk regardless of size
-                    chunks.append(Document(
-                        page_content=segment_text,
-                        metadata={**base_meta, "start_index": section_offset + within_offset},
+                    chunks.extend(_table_row_chunks(
+                        table_text=segment_text,
+                        base_meta=base_meta,
+                        breadcrumb=breadcrumb,
+                        start_index=section_offset + within_offset,
                     ))
                 else:
-                    # Regular text — split by character count
                     for chunk in self._char_splitter.create_documents([segment_text]):
                         local_start = chunk.metadata.get("start_index", 0)
                         chunks.append(Document(
