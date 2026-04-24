@@ -12,13 +12,10 @@ wheels/
 # MacOs
 .DS_Store
 
-# ChromaDB
-chroma
-
 # Environment variables
 .env
 
-# Agents 
+# Agents
 AGENTS.md
 CLAUDE.md
 
@@ -28,3 +25,5 @@ CLAUDE.md
 .vscode
 .idea
 .gemini
+
+.data

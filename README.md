@@ -1,67 +1,110 @@
 # document-qa
 
-A Q&A system for document collections using RAG (Retrieval-Augmented Generation). Indexes your documents and answers questions based on retrieved context. Uses ChromaDB for vector storage, HuggingFace embeddings (local), and OpenRouter for LLMs. Supports both CLI and Telegram bot interfaces.
+Local CLI for question answering over document collections with retrieval-augmented generation.
+
+The current runtime uses:
+
+- Docling for document conversion and chunking
+- Hugging Face sentence-transformer embeddings
+- LanceDB for local hybrid retrieval
+- OpenRouter for answer generation
+- Typer/Rich for the command-line interface
+- aiogram for the Telegram bot interface
+
+## Requirements
+
+- Python 3.11 through 3.13
+- `uv`
+- An OpenRouter API key for `document-qa ask`
 
 ## Setup
-
-Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/).
 
 ```bash
 uv sync
 cp .env.example .env
 ```
 
-Fill in `.env` — at minimum you need `OPENROUTER_API_KEY` and `OPENROUTER_MODEL`.
+Edit `.env` and set at least:
+
+```dotenv
+DQA_CHATMODEL__API_KEY=your_openrouter_api_key_here
+DQA_CHATMODEL__MODEL_NAME=openai/gpt-4o-mini
+```
+
+The CLI reads `.env` and `.env.local` automatically. Settings use the `DQA_` prefix and `__` for nested fields.
 
 ## Usage
 
-### CLI
-
-Index files or directories:
+Index a document:
 
 ```bash
-uv run python src/main.py index path/to/file.pdf path/to/docs/
+uv run document-qa ingest path/to/document.pdf
 ```
 
-Ask a question:
+Ask a question against the indexed collection:
 
 ```bash
-uv run python src/main.py ask "What does the refund policy say?"
+uv run document-qa ask "What does the document say about refunds?"
 ```
 
-### Telegram bot
-
-1. Get a bot token from [@BotFather](https://t.me/BotFather)
-2. Add `TELEGRAM_BOT_TOKEN=...` to your `.env`
-3. Start the bot:
+Inspect retrieved chunks without calling the chat model:
 
 ```bash
-uv run python src/main.py bot
+uv run document-qa retrieve "refund policy" --k 5
 ```
 
-The bot handles `/start`, `/help`, and answers any text message using the RAG pipeline.
+Show command help:
 
-## Supported formats
+```bash
+uv run document-qa --help
+uv run document-qa ingest --help
+uv run document-qa ask --help
+uv run document-qa retrieve --help
+```
 
-PDF, DOCX, PPTX, HTML, Markdown, XLSX, CSV, AsciiDoc, plain text.
+## Telegram Bot
+
+The Telegram interface uses the same indexed LanceDB collection and answer pipeline as the CLI.
+
+1. Create a bot token with [@BotFather](https://t.me/BotFather).
+2. Set `DQA_TELEGRAM__BOT_TOKEN` in `.env`.
+3. Start polling:
+
+```bash
+uv run document-qa-telegram
+```
+
+Show bot command help without starting polling:
+
+```bash
+uv run document-qa-telegram --help
+```
 
 ## Configuration
 
-All settings are in `.env`. See `.env.example` for the full list with defaults.
+See `.env.example` for all supported environment variables.
+
+Important defaults:
 
 | Variable | Default | Description |
-|---|---|---|
-| `OPENROUTER_API_KEY` | — | Required |
-| `OPENROUTER_MODEL` | — | Required |
-| `TELEGRAM_BOT_TOKEN` | — | Required for `bot` command |
-| `OPENROUTER_TEMPERATURE` | `0.0` | Higher = more creative answers |
-| `HUGGINGFACE_MODEL` | `all-MiniLM-L6-v2` | Embedding model |
-| `HUGGINGFACE_DEVICE` | `cpu` | Set to `cuda` for GPU |
-| `CHROMA_PERSIST_DIRECTORY` | `./chroma` | Where the vector DB is stored |
-| `CHROMA_COLLECTION_NAME` | `documents` | Collection name |
-| `RETRIEVER_K` | `3` | Chunks passed to the LLM per query |
-| `RETRIEVER_SCORE_THRESHOLD` | off | Drop chunks above this distance score |
-| `SPLITTER_CHUNK_SIZE` | `1000` | Requires re-indexing to take effect |
-| `SPLITTER_CHUNK_OVERLAP` | `200` | Requires re-indexing to take effect |
-| `INDEXER_BATCH_SIZE` | `50` | ChromaDB write batch size |
-| `AGENT_SYSTEM_PROMPT` | see `.env.example` | Tweak agent behavior without touching code |
+| --- | --- | --- |
+| `DQA_KNOWLEDGE_BASE__PATH` | `.data/lance` | Local LanceDB directory |
+| `DQA_KNOWLEDGE_BASE__TABLE_NAME` | `documents` | LanceDB table name |
+| `DQA_EMBEDDER__MODEL_NAME` | `sentence-transformers/all-MiniLM-L6-v2` | Embedding model |
+| `DQA_CHUNKING__MAX_TOKENS` | `500` | Docling chunk target size |
+| `DQA_RETRIEVAL__K` | `10` | Chunks retrieved for answers |
+| `DQA_TELEGRAM__BOT_TOKEN` | unset | Required for the Telegram bot |
+
+Changing the embedding model or chunking settings requires re-ingesting documents.
+
+## Supported Inputs
+
+Docling determines the supported file types. Common formats include PDF, DOCX, PPTX, HTML, Markdown, XLSX, CSV, AsciiDoc, and plain text.
+
+## Development Checks
+
+```bash
+uv run ty check
+uv run pytest
+uv build
+```
