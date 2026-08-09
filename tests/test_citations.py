@@ -98,6 +98,18 @@ def test_format_answer_rejects_model_generated_source_list(answer: str) -> None:
         format_answer_with_citations(response)
 
 
+def test_format_answer_canonicalizes_safe_cjk_numeric_citation() -> None:
+    response = QAResponse(
+        answer="The refund period is 30 days \u30101\u3011.",
+        retrieved_documents=[(make_document("policy.pdf", ["Refunds"]), 0.9)],
+    )
+
+    assert format_answer_with_citations(response) == (
+        "The refund period is 30 days [1].\n\n"
+        "Sources:\n- [1] policy.pdf - Refunds"
+    )
+
+
 @pytest.mark.parametrize(
     "answer",
     [

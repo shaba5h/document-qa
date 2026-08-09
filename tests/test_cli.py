@@ -27,6 +27,7 @@ def test_root_help_lists_local_cli_commands(monkeypatch, tmp_path) -> None:
     assert "ingest" in result.output
     assert "ask" in result.output
     assert "retrieve" in result.output
+    assert "evaluate" in result.output
 
 
 def test_ingest_missing_path_fails_before_building_pipeline(monkeypatch, tmp_path) -> None:
