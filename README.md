@@ -59,6 +59,63 @@ Inspect retrieved chunks without calling the chat model:
 uv run document-qa retrieve "refund policy" --k 5
 ```
 
+## RAG Evaluation
+
+The repository includes a versioned synthetic corpus and 30 gold questions in
+`benchmarks/sample`. Run the real Docling, Hugging Face, and LanceDB retrieval
+pipeline against an isolated temporary index:
+
+```bash
+uv run document-qa evaluate benchmarks/sample/dataset.json --fresh-index
+```
+
+Current retrieval baseline with the locked dependencies and default embedding
+model:
+
+| Metric | Result |
+| --- | ---: |
+| Hit@1 | 23/24 (95.8%) |
+| Hit@3 | 24/24 (100.0%) |
+| MRR@3 | 97.9% |
+| Evidence recall@3 | 100.0% |
+
+The published live generation baseline uses `openai/gpt-oss-120b` at temperature
+`0.0`:
+
+| Metric | Result |
+| --- | ---: |
+| Strict RAG overall accuracy | 29/30 (96.7%) |
+| All-facts accuracy | 23/24 (95.8%) |
+| Fact recall | 30/31 (96.8%) |
+| Citation precision / recall | 100.0% / 100.0% |
+| No-answer accuracy | 6/6 (100.0%) |
+
+Add generation, citation, and no-answer scoring with the configured OpenRouter
+model. This makes one model call per benchmark case:
+
+```bash
+uv run document-qa evaluate benchmarks/sample/dataset.json \
+  --fresh-index \
+  --with-answers \
+  --output rag-evaluation-report.json
+```
+
+The human report separates retrieval quality from generation quality:
+
+- `Hit@1`, `Hit@K`, `MRR@K`, and evidence recall measure chunk retrieval.
+- Fact recall and all-facts accuracy match versioned expected facts.
+- Citation precision and recall map `[n]` references back to gold sources.
+- No-answer accuracy measures correct `[NO_EVIDENCE]` abstentions.
+- RAG overall accuracy is a strict case pass rate: required facts, exact gold
+  source citations, complete gold retrieval, and correct abstention must all
+  pass. It is not an average that lets one strong component hide another.
+
+Use `--json` for machine-readable stdout or `--output PATH` to retain the full
+per-case report, including ranked chunks and scores. These percentages describe
+this committed benchmark, not universal model intelligence. See
+`benchmarks/sample/README.md` and the hash-pinned `baseline.json` for the
+protocol, limitations, and known failed case.
+
 Show command help:
 
 ```bash
@@ -66,6 +123,7 @@ uv run document-qa --help
 uv run document-qa ingest --help
 uv run document-qa ask --help
 uv run document-qa retrieve --help
+uv run document-qa evaluate --help
 ```
 
 ## Telegram Bot
