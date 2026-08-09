@@ -116,6 +116,9 @@ this committed benchmark, not universal model intelligence. See
 `benchmarks/sample/README.md` and the hash-pinned `baseline.json` for the
 protocol, limitations, and known failed case.
 
+Use `--fresh-index` for publishable results. Evaluation against an existing
+index cannot prove that stored chunks came from the current corpus revision.
+
 Show command help:
 
 ```bash
@@ -138,6 +141,22 @@ The Telegram interface uses the same indexed LanceDB collection and answer pipel
 uv run document-qa-telegram
 ```
 
+The bot applies guardrails before starting an embedding or OpenRouter call:
+
+- optional user-ID allowlist for private deployments
+- maximum question length
+- per-user sliding-window rate limiting
+- one in-flight question per user
+- global concurrency limit for expensive RAG calls
+- provider request timeout and bounded retries
+
+The bot is public when `DQA_TELEGRAM__ALLOWED_USER_IDS` is empty. Restrict it
+with a JSON list and use `/id` to show the current Telegram user ID:
+
+```dotenv
+DQA_TELEGRAM__ALLOWED_USER_IDS=[123456789,987654321]
+```
+
 Show bot command help without starting polling:
 
 ```bash
@@ -158,6 +177,12 @@ Important defaults:
 | `DQA_CHUNKING__MAX_TOKENS` | `500` | Docling chunk target size |
 | `DQA_RETRIEVAL__K` | `10` | Chunks retrieved for answers |
 | `DQA_TELEGRAM__BOT_TOKEN` | unset | Required for the Telegram bot |
+| `DQA_TELEGRAM__MAX_QUESTION_CHARS` | `2000` | Maximum accepted question length |
+| `DQA_TELEGRAM__RATE_LIMIT_REQUESTS` | `5` | Questions allowed per user and window |
+| `DQA_TELEGRAM__RATE_LIMIT_WINDOW_SECONDS` | `60` | Sliding rate-limit window |
+| `DQA_TELEGRAM__MAX_CONCURRENT_REQUESTS` | `4` | Global concurrent RAG calls |
+| `DQA_CHATMODEL__TIMEOUT_SECONDS` | `120` | OpenRouter request timeout |
+| `DQA_CHATMODEL__MAX_RETRIES` | `0` | OpenRouter retry budget (`0` disables retries) |
 
 Changing the embedding model or chunking settings requires re-ingesting documents.
 

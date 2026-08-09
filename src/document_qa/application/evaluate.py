@@ -9,7 +9,7 @@ from typing import Self
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from document_qa.application.ask import AskUseCase
-from document_qa.application.citations import validate_answer
+from document_qa.application.citations import canonicalize_citations, validate_answer
 from document_qa.application.retrieve import RetrieveUseCase
 from document_qa.domain.models import QAResponse
 
@@ -162,6 +162,8 @@ class EvaluationConfig(BaseModel):
     fresh_index: bool
     chat_model: str | None = None
     temperature: float | None = None
+    chat_timeout_seconds: int | None = None
+    chat_max_retries: int | None = None
     dataset_sha256: str
     corpus_sha256: dict[str, str]
 
@@ -410,7 +412,7 @@ def evaluate_dataset(
                 except ValueError as exc:
                     citation_error = str(exc)
 
-                citation_text = validated.text if contract_valid else raw_answer
+                citation_text = canonicalize_citations(raw_answer)
                 citation_indices = _extract_citation_indices(citation_text)
                 for index in citation_indices:
                     citation_count += 1

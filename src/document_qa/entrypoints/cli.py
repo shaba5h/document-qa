@@ -278,6 +278,10 @@ def _run_evaluation(
         fresh_index=fresh_index,
         chat_model=settings.chatmodel.model_name if with_answers else None,
         temperature=settings.chatmodel.temperature if with_answers else None,
+        chat_timeout_seconds=(
+            settings.chatmodel.timeout_seconds if with_answers else None
+        ),
+        chat_max_retries=settings.chatmodel.max_retries if with_answers else None,
         dataset_sha256=dataset_sha256,
         corpus_sha256=corpus_sha256,
     )

@@ -39,6 +39,12 @@ class RetrievalSettings(BaseModel):
 
 class TelegramSettings(BaseModel):
     bot_token: SecretStr | None = None
+    allowed_user_ids: set[int] = Field(default_factory=set)
+    max_question_chars: int = Field(default=2000, gt=0)
+    rate_limit_requests: int = Field(default=5, gt=0)
+    rate_limit_window_seconds: int = Field(default=60, gt=0)
+    rate_limit_tracked_users: int = Field(default=10_000, gt=0)
+    max_concurrent_requests: int = Field(default=4, gt=0)
 
 
 class OpenRouterChatModelSettings(BaseModel):
@@ -46,6 +52,8 @@ class OpenRouterChatModelSettings(BaseModel):
     model_name: str = ""
     temperature: float = 0.2
     api_key: SecretStr | None = None
+    timeout_seconds: int = Field(default=120, gt=0)
+    max_retries: int = Field(default=0, ge=0)
 
 
 ChatModelSettings = OpenRouterChatModelSettings

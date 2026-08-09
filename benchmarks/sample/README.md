@@ -55,4 +55,6 @@ The one failed case, `return-shipping-charge`, contained the correct refund fact
 
 `dataset.json` pins the embedding model, prompt names, chunk size, retrieval depth, weights, and generation temperature so local `.env` overrides cannot silently change the protocol. `baseline.json` records the dataset, corpus, and `uv.lock` hashes alongside the measured metrics.
 
+Published runs must use `--fresh-index`; an existing LanceDB can contain chunks from an older corpus revision even when filenames and section paths still match.
+
 Generation scores use normalized lexical facts, explicit aliases, and subject-bound patterns from `dataset.json`; they are transparent and reproducible, but they are not a semantic or LLM-as-judge score. They do not prove that every additional claim is grounded. Provider and model drift can still change a new live run.

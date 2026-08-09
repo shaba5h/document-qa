@@ -298,12 +298,10 @@
       },
       "fact_patterns": {
         "physical product return window is 30 calendar days": [
-          "physical product.{0,160}30 calendar days",
-          "30 calendar days.{0,160}physical product"
+          "physical product(?:(?!annual subscription).){0,160}30 calendar days"
         ],
         "annual subscription refund window is 7 calendar days": [
-          "annual subscription.{0,160}7 calendar days",
-          "7 calendar days.{0,160}annual subscription"
+          "annual subscription(?:(?!physical product).){0,160}7 calendar days"
         ]
       },
       "tags": ["multi-source", "multi-fact", "hard-negative"]
@@ -332,12 +330,11 @@
       },
       "fact_patterns": {
         "critical support response target is 1 hour": [
-          "critical.{0,120}support.{0,120}1 hour",
-          "1 hour.{0,120}critical.{0,120}support"
+          "critical(?:(?!security incident).){0,120}support(?:(?!security incident).){0,120}1 hour",
+          "support(?:(?!security incident).){0,120}critical(?:(?!security incident).){0,120}1 hour"
         ],
         "security incident acknowledgement target is 15 minutes": [
-          "security.{0,120}incident.{0,120}15 minutes",
-          "15 minutes.{0,120}security.{0,120}incident"
+          "security(?:(?!critical support).){0,120}incident(?:(?!critical support).){0,120}15 minutes"
         ]
       },
       "tags": ["multi-source", "multi-fact", "hard-negative"]

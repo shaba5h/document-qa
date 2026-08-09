@@ -48,6 +48,8 @@ def make_config(*, k: int = 3, with_answers: bool = False) -> EvaluationConfig:
         fresh_index=True,
         chat_model="test-chat" if with_answers else None,
         temperature=0.0 if with_answers else None,
+        chat_timeout_seconds=30 if with_answers else None,
+        chat_max_retries=0 if with_answers else None,
         dataset_sha256="test-dataset-hash",
         corpus_sha256={},
     )
@@ -183,7 +185,7 @@ def test_generation_evaluation_scores_facts_citations_abstention_and_overall() -
                 retrieved_documents=[(distractor, 0.9)],
             ),
             "vacation question": QAResponse(
-                answer="Employees receive 20 days [2].",
+                answer="Employees receive 20 days \u30101\u3011 [2].",
                 retrieved_documents=[(handbook, 0.9)],
             ),
         }
@@ -200,8 +202,8 @@ def test_generation_evaluation_scores_facts_citations_abstention_and_overall() -
     assert metrics.contract_validity == pytest.approx(2 / 3)
     assert metrics.all_facts_accuracy == 1.0
     assert metrics.fact_recall == 1.0
-    assert metrics.citation_precision == 0.5
-    assert metrics.citation_recall == 0.5
+    assert metrics.citation_precision == pytest.approx(2 / 3)
+    assert metrics.citation_recall == 1.0
     assert metrics.no_answer_accuracy == 1.0
     assert metrics.answerability_accuracy == 1.0
     assert metrics.overall_accuracy == pytest.approx(2 / 3)
@@ -330,6 +332,57 @@ def test_fact_matching_supports_unicode_dashes_and_subject_bound_patterns() -> N
     assert report.generation.overall_accuracy == 1.0
 
 
+def test_subject_bound_patterns_reject_swapped_comparison_values() -> None:
+    root = Path(__file__).parents[1]
+    full_dataset = load_evaluation_dataset(
+        root / "benchmarks" / "sample" / "dataset.json"
+    )
+    comparison = next(
+        case
+        for case in full_dataset.cases
+        if case.id == "compare-refund-windows"
+    )
+    dataset = EvaluationDataset(name="swapped-values", cases=[comparison])
+    returns = Document(
+        id="returns",
+        text="",
+        source_path=Path("returns-policy.md"),
+        source_filename="returns-policy.md",
+        source_hash="returns",
+        section_path=["Product Returns and Exchanges", "Product Returns"],
+    )
+    subscription = Document(
+        id="subscription",
+        text="",
+        source_path=Path("subscription-policy.md"),
+        source_filename="subscription-policy.md",
+        source_hash="subscription",
+        section_path=["Subscription Policy", "Refunds"],
+    )
+    agent = MappingAgent(
+        {
+            comparison.question: QAResponse(
+                answer=(
+                    "The physical product return window is 7 calendar days [1], "
+                    "while the annual subscription refund window is "
+                    "30 calendar days [2]."
+                ),
+                retrieved_documents=[(returns, 0.9), (subscription, 0.8)],
+            )
+        }
+    )
+
+    report = evaluate_dataset(
+        dataset,
+        make_config(with_answers=True),
+        ask_use_case=AskUseCase(agent),
+    )
+
+    assert report.generation is not None
+    assert report.generation.fact_recall == 0.0
+    assert report.generation.overall_accuracy == 0.0
+
+
 def test_evaluation_dataset_rejects_answerable_case_without_gold() -> None:
     with pytest.raises(ValidationError, match="expected_evidence"):
         EvaluationDataset(
@@ -374,6 +427,10 @@ def test_published_baseline_matches_versioned_dataset_corpus_and_lockfile() -> N
 
     assert baseline["dataset_sha256"] == file_sha256(dataset_path)
     assert baseline["uv_lock_sha256"] == file_sha256(root / "uv.lock")
+    assert baseline["code_sha256"] == {
+        path: file_sha256(root / path)
+        for path in baseline["code_sha256"]
+    }
     assert baseline["corpus_sha256"] == {
         path.name: file_sha256(path)
         for path in resolve_corpus_paths(dataset_path, dataset)

@@ -24,8 +24,12 @@ class ValidatedAnswer:
     no_evidence: bool
 
 
+def canonicalize_citations(answer: str) -> str:
+    return _CJK_CITATION_PATTERN.sub(r"[\1]", answer)
+
+
 def validate_answer(response: QAResponse) -> ValidatedAnswer:
-    answer = _CJK_CITATION_PATTERN.sub(r"[\1]", response.answer.strip())
+    answer = canonicalize_citations(response.answer.strip())
     if not answer:
         return ValidatedAnswer(text="", citation_indices=(), no_evidence=False)
     if _SOURCE_LIST_PATTERN.search(answer):

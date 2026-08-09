@@ -4,8 +4,13 @@
     "Live responses were collected from the configured OpenRouter model and rescored with the current deterministic evaluator.",
     "The scorer canonicalizes numeric CJK citations and Unicode dash variants but does not add a case-specific alias for the failed response."
   ],
-  "dataset_sha256": "7bcec23bd835987c9f51daae33967dc38049379f61de3c00bd3d800f76a85621",
+  "dataset_sha256": "28c64d95ac61dfb38230e92229ff271f8ba1ad96c757911503f9c2fc5afe9a98",
   "uv_lock_sha256": "1ec23e1a0667e0af3c61a6a72db9e22edde3f55135d6cef20f8e12950b563f8c",
+  "code_sha256": {
+    "src/document_qa/application/evaluate.py": "f74eb8cc262e4df8adde2a98d06045b38deae5ad4f4381fc95045371560243d6",
+    "src/document_qa/application/citations.py": "1ff43139bfb3cf56e974f650a464b3bf5f13157454221b454d64c13c096f7250",
+    "src/document_qa/infrastructure/langchain/prompts.py": "8c88ed10ba90cd65fc900f371ca59730fa30c864e7561e2918bf8c9cd16ec88a"
+  },
   "corpus_sha256": {
     "returns-policy.md": "25eb8651a85203022e2690b6204780c961364a787b0334f8437a8abb0121903e",
     "shipping-policy.md": "633b6207cdd0f800f89d9c588e69475324fb11a1ec63b6bcbf875c7be8917a5c",
@@ -23,7 +28,9 @@
     "vector_weight": 0.5,
     "fts_weight": 0.5,
     "chat_model": "openai/gpt-oss-120b",
-    "temperature": 0.0
+    "temperature": 0.0,
+    "timeout_seconds": null,
+    "max_retries": 2
   },
   "retrieval": {
     "answerable_cases": 24,
