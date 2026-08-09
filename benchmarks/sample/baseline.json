@@ -1,0 +1,54 @@
+{
+  "run_date": "2026-08-09",
+  "notes": [
+    "Live responses were collected from the configured OpenRouter model and rescored with the current deterministic evaluator.",
+    "The scorer canonicalizes numeric CJK citations and Unicode dash variants but does not add a case-specific alias for the failed response."
+  ],
+  "dataset_sha256": "7bcec23bd835987c9f51daae33967dc38049379f61de3c00bd3d800f76a85621",
+  "uv_lock_sha256": "1ec23e1a0667e0af3c61a6a72db9e22edde3f55135d6cef20f8e12950b563f8c",
+  "corpus_sha256": {
+    "returns-policy.md": "25eb8651a85203022e2690b6204780c961364a787b0334f8437a8abb0121903e",
+    "shipping-policy.md": "633b6207cdd0f800f89d9c588e69475324fb11a1ec63b6bcbf875c7be8917a5c",
+    "employee-handbook.md": "18abcc04f35700c8c5a5b44c39bca4d55245fd7127d95a08361fa256d254311c",
+    "support-guide.md": "731cc3152c1ed99ba0a065997e7b980f58ad6c0048866df4bcd3e26aff378bd5",
+    "security-operations.md": "9ce3234200edfa91d33b10b3441b338a985a99f796eb9845658b2bf9175b318b",
+    "subscription-policy.md": "3b4b325bc7fdf7e0a2c21a58ad18b4817941ea88915c32df112e33e283ab432b"
+  },
+  "config": {
+    "embedder_model": "sentence-transformers/all-MiniLM-L6-v2",
+    "documents_prompt_name": "document",
+    "query_prompt_name": "query",
+    "chunk_max_tokens": 500,
+    "retrieval_k": 3,
+    "vector_weight": 0.5,
+    "fts_weight": 0.5,
+    "chat_model": "openai/gpt-oss-120b",
+    "temperature": 0.0
+  },
+  "retrieval": {
+    "answerable_cases": 24,
+    "hit_at_1_count": 23,
+    "hit_at_1": 0.9583333333333334,
+    "hit_at_3_count": 24,
+    "hit_at_3": 1.0,
+    "mrr_at_3": 0.9791666666666666,
+    "evidence_recall_at_3": 1.0,
+    "pipeline_errors": 0
+  },
+  "generation": {
+    "evaluated_cases": 30,
+    "contract_validity": 1.0,
+    "all_facts_accuracy": 0.9583333333333334,
+    "fact_recall": 0.967741935483871,
+    "citation_precision": 1.0,
+    "citation_recall": 1.0,
+    "no_answer_accuracy": 1.0,
+    "answerability_accuracy": 1.0,
+    "overall_accuracy": 0.9666666666666667,
+    "passed_cases": 29,
+    "pipeline_errors": 0
+  },
+  "failed_cases": [
+    "return-shipping-charge"
+  ]
+}

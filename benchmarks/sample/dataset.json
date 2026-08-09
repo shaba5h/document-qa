@@ -1,0 +1,382 @@
+{
+  "schema_version": 1,
+  "name": "synthetic-company-policies-v1",
+  "description": "A reproducible evidence-level RAG benchmark with numeric hard negatives, multi-source questions, and unanswerable cases.",
+  "pipeline": {
+    "embedder_model": "sentence-transformers/all-MiniLM-L6-v2",
+    "documents_prompt_name": "document",
+    "query_prompt_name": "query",
+    "chunk_max_tokens": 500,
+    "retrieval_k": 3,
+    "vector_weight": 0.5,
+    "fts_weight": 0.5,
+    "generation_temperature": 0.0
+  },
+  "corpus": [
+    "corpus/returns-policy.md",
+    "corpus/shipping-policy.md",
+    "corpus/employee-handbook.md",
+    "corpus/support-guide.md",
+    "corpus/security-operations.md",
+    "corpus/subscription-policy.md"
+  ],
+  "cases": [
+    {
+      "id": "product-return-window",
+      "question": "How long after delivery can a physical product be returned?",
+      "answerable": true,
+      "expected_evidence": [
+        {"source_filename": "returns-policy.md", "section_path": ["Product Returns and Exchanges", "Product Returns"]}
+      ],
+      "expected_facts": ["30 calendar days"],
+      "fact_aliases": {"30 calendar days": ["30 days"]},
+      "tags": ["single-source", "numeric", "hard-negative"]
+    },
+    {
+      "id": "product-return-condition",
+      "question": "What conditions must a returned product satisfy?",
+      "answerable": true,
+      "expected_evidence": [
+        {"source_filename": "returns-policy.md", "section_path": ["Product Returns and Exchanges", "Product Returns"]}
+      ],
+      "expected_facts": ["unused", "original packaging"],
+      "tags": ["single-source", "multi-fact"]
+    },
+    {
+      "id": "return-shipping-charge",
+      "question": "Are ordinary return shipping charges refundable?",
+      "answerable": true,
+      "expected_evidence": [
+        {"source_filename": "returns-policy.md", "section_path": ["Product Returns and Exchanges", "Product Returns"]}
+      ],
+      "expected_facts": ["non-refundable"],
+      "fact_aliases": {"non-refundable": ["not refundable"]},
+      "tags": ["single-source", "hard-negative"]
+    },
+    {
+      "id": "exchange-window",
+      "question": "Within how many calendar days of delivery may a customer request a size or color exchange?",
+      "answerable": true,
+      "expected_evidence": [
+        {"source_filename": "returns-policy.md", "section_path": ["Product Returns and Exchanges", "Exchanges"]}
+      ],
+      "expected_facts": ["14 calendar days"],
+      "fact_aliases": {"14 calendar days": ["14 days"]},
+      "tags": ["single-source", "numeric", "hard-negative"]
+    },
+    {
+      "id": "refund-processing-time",
+      "question": "How soon is an approved product refund sent after inspection?",
+      "answerable": true,
+      "expected_evidence": [
+        {"source_filename": "returns-policy.md", "section_path": ["Product Returns and Exchanges", "Refund Processing"]}
+      ],
+      "expected_facts": ["5-7 business days"],
+      "fact_aliases": {"5-7 business days": ["5 to 7 business days"]},
+      "tags": ["single-source", "numeric", "hard-negative"]
+    },
+    {
+      "id": "standard-shipping-time",
+      "question": "How long does standard domestic shipping take after an order leaves the warehouse?",
+      "answerable": true,
+      "expected_evidence": [
+        {"source_filename": "shipping-policy.md", "section_path": ["Shipping Policy", "Domestic Delivery"]}
+      ],
+      "expected_facts": ["3-5 business days"],
+      "fact_aliases": {"3-5 business days": ["3 to 5 business days"]},
+      "tags": ["single-source", "numeric", "hard-negative"]
+    },
+    {
+      "id": "express-shipping-time",
+      "question": "What is the delivery estimate for domestic express shipping?",
+      "answerable": true,
+      "expected_evidence": [
+        {"source_filename": "shipping-policy.md", "section_path": ["Shipping Policy", "Domestic Delivery"]}
+      ],
+      "expected_facts": ["2 business days"],
+      "fact_aliases": {"2 business days": ["two business days"]},
+      "tags": ["single-source", "numeric"]
+    },
+    {
+      "id": "international-shipping-time",
+      "question": "What is the normal international shipping estimate?",
+      "answerable": true,
+      "expected_evidence": [
+        {"source_filename": "shipping-policy.md", "section_path": ["Shipping Policy", "International Delivery"]}
+      ],
+      "expected_facts": ["7-12 business days"],
+      "fact_aliases": {"7-12 business days": ["7 to 12 business days"]},
+      "tags": ["single-source", "numeric", "hard-negative"]
+    },
+    {
+      "id": "free-shipping-threshold",
+      "question": "What order value qualifies for free domestic standard shipping?",
+      "answerable": true,
+      "expected_evidence": [
+        {"source_filename": "shipping-policy.md", "section_path": ["Shipping Policy", "Shipping Charges"]}
+      ],
+      "expected_facts": ["$75 or more"],
+      "fact_aliases": {"$75 or more": ["at least $75", "75 dollars or more"]},
+      "tags": ["single-source", "numeric"]
+    },
+    {
+      "id": "vacation-days",
+      "question": "How many paid vacation days do full-time employees receive each year?",
+      "answerable": true,
+      "expected_evidence": [
+        {"source_filename": "employee-handbook.md", "section_path": ["Employee Handbook", "Paid Leave"]}
+      ],
+      "expected_facts": ["20 paid vacation days"],
+      "fact_aliases": {"20 paid vacation days": ["20 vacation days"]},
+      "tags": ["single-source", "numeric"]
+    },
+    {
+      "id": "sick-days",
+      "question": "How many paid sick days are provided per calendar year?",
+      "answerable": true,
+      "expected_evidence": [
+        {"source_filename": "employee-handbook.md", "section_path": ["Employee Handbook", "Paid Leave"]}
+      ],
+      "expected_facts": ["10 paid sick days"],
+      "fact_aliases": {"10 paid sick days": ["10 sick days"]},
+      "tags": ["single-source", "numeric"]
+    },
+    {
+      "id": "remote-work-days",
+      "question": "On which regular weekdays may eligible employees work remotely without extra manager approval?",
+      "answerable": true,
+      "expected_evidence": [
+        {"source_filename": "employee-handbook.md", "section_path": ["Employee Handbook", "Remote Work"]}
+      ],
+      "expected_facts": ["Tuesday", "Thursday"],
+      "tags": ["single-source", "multi-fact"]
+    },
+    {
+      "id": "probation-period",
+      "question": "How long is the probation period for a new employee?",
+      "answerable": true,
+      "expected_evidence": [
+        {"source_filename": "employee-handbook.md", "section_path": ["Employee Handbook", "Probation"]}
+      ],
+      "expected_facts": ["90 calendar days"],
+      "fact_aliases": {"90 calendar days": ["90 days"]},
+      "tags": ["single-source", "numeric"]
+    },
+    {
+      "id": "support-hours",
+      "question": "When does the customer support team operate?",
+      "answerable": true,
+      "expected_evidence": [
+        {"source_filename": "support-guide.md", "section_path": ["Customer Support Guide", "Service Hours"]}
+      ],
+      "expected_facts": ["Monday through Friday", "09:00-18:00 UTC"],
+      "fact_aliases": {
+        "Monday through Friday": [
+          "Monday to Friday",
+          "Monday-Friday",
+          "Monday-through-Friday"
+        ],
+        "09:00-18:00 UTC": ["09:00 to 18:00 UTC"]
+      },
+      "tags": ["single-source", "multi-fact"]
+    },
+    {
+      "id": "critical-support-response",
+      "question": "What is the initial response target for a critical support request?",
+      "answerable": true,
+      "expected_evidence": [
+        {"source_filename": "support-guide.md", "section_path": ["Customer Support Guide", "Response Targets"]}
+      ],
+      "expected_facts": ["1 hour", "during service hours"],
+      "fact_aliases": {"1 hour": ["one hour"]},
+      "tags": ["single-source", "numeric", "hard-negative"]
+    },
+    {
+      "id": "standard-support-response",
+      "question": "What is the initial response target for a standard support request?",
+      "answerable": true,
+      "expected_evidence": [
+        {"source_filename": "support-guide.md", "section_path": ["Customer Support Guide", "Response Targets"]}
+      ],
+      "expected_facts": ["2 business days"],
+      "fact_aliases": {"2 business days": ["two business days"]},
+      "tags": ["single-source", "numeric"]
+    },
+    {
+      "id": "support-channels",
+      "question": "Through which channels can a customer submit a support request?",
+      "answerable": true,
+      "expected_evidence": [
+        {"source_filename": "support-guide.md", "section_path": ["Customer Support Guide", "Service Hours"]}
+      ],
+      "expected_facts": ["support portal", "email"],
+      "tags": ["single-source", "multi-fact"]
+    },
+    {
+      "id": "password-rotation",
+      "question": "How frequently must employees change company passwords?",
+      "answerable": true,
+      "expected_evidence": [
+        {"source_filename": "security-operations.md", "section_path": ["Security Operations Standard", "Account Security"]}
+      ],
+      "expected_facts": ["90 days"],
+      "fact_aliases": {"90 days": ["90 calendar days"]},
+      "tags": ["single-source", "numeric"]
+    },
+    {
+      "id": "security-incident-acknowledgement",
+      "question": "How quickly must the security team acknowledge a critical incident?",
+      "answerable": true,
+      "expected_evidence": [
+        {"source_filename": "security-operations.md", "section_path": ["Security Operations Standard", "Incident Response"]}
+      ],
+      "expected_facts": ["15 minutes"],
+      "fact_aliases": {"15 minutes": ["fifteen minutes"]},
+      "tags": ["single-source", "numeric", "hard-negative"]
+    },
+    {
+      "id": "backup-retention",
+      "question": "For how long are encrypted production backups retained?",
+      "answerable": true,
+      "expected_evidence": [
+        {"source_filename": "security-operations.md", "section_path": ["Security Operations Standard", "Backups"]}
+      ],
+      "expected_facts": ["30 days"],
+      "fact_aliases": {"30 days": ["thirty days"]},
+      "tags": ["single-source", "numeric"]
+    },
+    {
+      "id": "annual-subscription-refund",
+      "question": "What is the refund window for a newly purchased annual subscription?",
+      "answerable": true,
+      "expected_evidence": [
+        {"source_filename": "subscription-policy.md", "section_path": ["Subscription Policy", "Refunds"]}
+      ],
+      "expected_facts": ["7 calendar days"],
+      "fact_aliases": {"7 calendar days": ["7 days"]},
+      "tags": ["single-source", "numeric", "hard-negative"]
+    },
+    {
+      "id": "annual-renewal-notice",
+      "question": "How far in advance is an annual subscription renewal notice sent?",
+      "answerable": true,
+      "expected_evidence": [
+        {"source_filename": "subscription-policy.md", "section_path": ["Subscription Policy", "Renewal Notices"]}
+      ],
+      "expected_facts": ["14 days before the renewal date"],
+      "fact_aliases": {
+        "14 days before the renewal date": [
+          "14 days in advance",
+          "14 days prior to renewal",
+          "14 days prior to the renewal date",
+          "fourteen days before the renewal date"
+        ]
+      },
+      "tags": ["single-source", "numeric"]
+    },
+    {
+      "id": "compare-refund-windows",
+      "question": "Compare the return window for a physical product with the refund window for an annual subscription.",
+      "answerable": true,
+      "expected_evidence": [
+        {"source_filename": "returns-policy.md", "section_path": ["Product Returns and Exchanges", "Product Returns"]},
+        {"source_filename": "subscription-policy.md", "section_path": ["Subscription Policy", "Refunds"]}
+      ],
+      "expected_facts": [
+        "physical product return window is 30 calendar days",
+        "annual subscription refund window is 7 calendar days"
+      ],
+      "fact_aliases": {
+        "physical product return window is 30 calendar days": [
+          "physical product can be returned within 30 calendar days",
+          "30 calendar days for a physical product"
+        ],
+        "annual subscription refund window is 7 calendar days": [
+          "annual subscription can be refunded within 7 calendar days",
+          "7 calendar days for an annual subscription"
+        ]
+      },
+      "fact_patterns": {
+        "physical product return window is 30 calendar days": [
+          "physical product.{0,160}30 calendar days",
+          "30 calendar days.{0,160}physical product"
+        ],
+        "annual subscription refund window is 7 calendar days": [
+          "annual subscription.{0,160}7 calendar days",
+          "7 calendar days.{0,160}annual subscription"
+        ]
+      },
+      "tags": ["multi-source", "multi-fact", "hard-negative"]
+    },
+    {
+      "id": "compare-critical-response-targets",
+      "question": "Compare the critical customer-support response target with the security incident acknowledgement target.",
+      "answerable": true,
+      "expected_evidence": [
+        {"source_filename": "support-guide.md", "section_path": ["Customer Support Guide", "Response Targets"]},
+        {"source_filename": "security-operations.md", "section_path": ["Security Operations Standard", "Incident Response"]}
+      ],
+      "expected_facts": [
+        "critical support response target is 1 hour",
+        "security incident acknowledgement target is 15 minutes"
+      ],
+      "fact_aliases": {
+        "critical support response target is 1 hour": [
+          "critical support request has a 1 hour response target",
+          "1 hour for critical customer support"
+        ],
+        "security incident acknowledgement target is 15 minutes": [
+          "critical security incident must be acknowledged within 15 minutes",
+          "15 minutes for security incident acknowledgement"
+        ]
+      },
+      "fact_patterns": {
+        "critical support response target is 1 hour": [
+          "critical.{0,120}support.{0,120}1 hour",
+          "1 hour.{0,120}critical.{0,120}support"
+        ],
+        "security incident acknowledgement target is 15 minutes": [
+          "security.{0,120}incident.{0,120}15 minutes",
+          "15 minutes.{0,120}security.{0,120}incident"
+        ]
+      },
+      "tags": ["multi-source", "multi-fact", "hard-negative"]
+    },
+    {
+      "id": "company-ceo",
+      "question": "Who is the chief executive officer of Acme?",
+      "answerable": false,
+      "tags": ["unanswerable"]
+    },
+    {
+      "id": "maternity-leave",
+      "question": "How many weeks of maternity leave does Acme provide?",
+      "answerable": false,
+      "tags": ["unanswerable", "near-miss"]
+    },
+    {
+      "id": "same-day-shipping-price",
+      "question": "How much does same-day shipping cost?",
+      "answerable": false,
+      "tags": ["unanswerable", "near-miss"]
+    },
+    {
+      "id": "biometric-retention",
+      "question": "How long does Acme retain employee biometric data?",
+      "answerable": false,
+      "tags": ["unanswerable", "near-miss"]
+    },
+    {
+      "id": "restocking-fee",
+      "question": "What percentage restocking fee is charged for a product return?",
+      "answerable": false,
+      "tags": ["unanswerable", "near-miss", "hard-negative"]
+    },
+    {
+      "id": "support-phone-number",
+      "question": "What phone number should customers call for support?",
+      "answerable": false,
+      "tags": ["unanswerable", "near-miss"]
+    }
+  ]
+}
