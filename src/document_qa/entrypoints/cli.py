@@ -5,8 +5,8 @@ from typing import Annotated, NoReturn
 
 import typer
 from rich.console import Console
-from rich.markdown import Markdown
 
+from document_qa.application.citations import format_answer_with_citations
 from document_qa.bootstrap import (
     build_ask_use_case,
     build_ingest_use_case,
@@ -69,7 +69,12 @@ def ask(
 
     response = ask_uc.execute(question)
 
-    console.print(Markdown(response.answer))
+    try:
+        answer = format_answer_with_citations(response)
+    except ValueError as exc:
+        _exit_with_error(str(exc))
+
+    console.print(answer, markup=False)
 
 
 @app.command("retrieve", help="Show retrieved chunks without calling the chat model.")

@@ -33,7 +33,7 @@ class LanceKnowledgeBase:
         )
 
     def _open_table(self, table_name: str):
-        table_names = set(self._db.table_names())
+        table_names = set(self._db.list_tables().tables)
         if table_name in table_names:
             return self._db.open_table(table_name)
         return None
@@ -99,6 +99,11 @@ class LanceKnowledgeBase:
 
     def _ingest_batch(self, batch: list[Document]) -> None:
         embeddings = self._embedder.embed_documents(batch)
+        if len(embeddings) != len(batch):
+            raise ValueError(
+                "Embedder returned "
+                f"{len(embeddings)} vectors for {len(batch)} documents."
+            )
         rows = [_document_to_row(doc, emb) for doc, emb in zip(batch, embeddings)]
         self._ensure_table(rows)
 
@@ -119,7 +124,9 @@ class LanceKnowledgeBase:
         )
 
         for row in rows:
-            yield _row_to_document(row), row["_relevance_score"]
+            score = row["_relevance_score"]
+            if score > 0:
+                yield _row_to_document(row), score
 
 
 def _document_to_row(

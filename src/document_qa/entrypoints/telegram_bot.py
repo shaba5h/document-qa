@@ -12,6 +12,7 @@ from aiogram.filters import Command, CommandStart
 from aiogram.types import Message
 
 from document_qa.application.ask import AskUseCase
+from document_qa.application.citations import format_answer_with_citations
 from document_qa.bootstrap import build_ask_use_case
 from document_qa.settings import Settings
 
@@ -58,12 +59,11 @@ async def _answer_question(message: Message, ask_use_case: AskUseCase) -> None:
 
     try:
         response = await asyncio.to_thread(ask_use_case.execute, question)
+        answer = format_answer_with_citations(response) or "No answer."
     except Exception:
         logger.exception("Failed to answer Telegram question")
         await message.answer("Could not answer the question.")
         return
-
-    answer = response.answer.strip() or "No answer."
 
     for chunk in _split_telegram_text(answer):
         await message.answer(chunk)

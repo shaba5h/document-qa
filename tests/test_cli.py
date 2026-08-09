@@ -1,7 +1,10 @@
 import os
+from pathlib import Path
 
 from typer.testing import CliRunner
 
+import document_qa.entrypoints.cli as cli_entrypoint
+from document_qa.domain.models import Document, QAResponse
 from document_qa.entrypoints.cli import app
 
 
@@ -56,3 +59,38 @@ def test_retrieve_rejects_non_positive_k(monkeypatch, tmp_path) -> None:
 
     assert result.exit_code == 1
     assert "--k must be greater than 0" in result.output
+
+
+def test_ask_renders_validated_citations(monkeypatch, tmp_path) -> None:
+    class FakeAskUseCase:
+        def execute(self, question: str) -> QAResponse:
+            assert question == "What is the refund window?"
+            document = Document(
+                id="refunds",
+                text="Refunds are available for 30 days.",
+                source_path=Path("/knowledge/policy.pdf"),
+                source_filename="policy.pdf",
+                source_hash="hash",
+                section_path=["Refunds"],
+            )
+            return QAResponse(
+                answer="Refunds are available for 30 days [1].",
+                retrieved_documents=[(document, 0.9)],
+            )
+
+    monkeypatch.chdir(tmp_path)
+    clear_dqa_environment(monkeypatch)
+    monkeypatch.setenv("DQA_CHATMODEL__MODEL_NAME", "test-model")
+    monkeypatch.setenv("DQA_CHATMODEL__API_KEY", "test-key")
+    monkeypatch.setattr(
+        cli_entrypoint,
+        "build_ask_use_case",
+        lambda settings: FakeAskUseCase(),
+    )
+
+    result = runner.invoke(app, ["ask", "What is the refund window?"])
+
+    assert result.exit_code == 0
+    assert "Refunds are available for 30 days [1]." in result.output
+    assert "Sources:" in result.output
+    assert "- [1] policy.pdf - Refunds" in result.output
