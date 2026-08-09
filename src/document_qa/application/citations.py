@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 
 from document_qa.domain.models import QAResponse
 
@@ -8,15 +9,25 @@ _BRACKET_PATTERN = re.compile(r"\[([^\[\]]*)]")
 _CITATION_PATTERN = re.compile(
     r"(?:0|[1-9]\d*)(?:\s*,\s*(?:0|[1-9]\d*))*"
 )
+_CJK_CITATION_PATTERN = re.compile(
+    r"\u3010((?:0|[1-9]\d*)(?:\s*,\s*(?:0|[1-9]\d*))*)\u3011"
+)
 _MARKDOWN_LINK_PATTERN = re.compile(r"\[[^]]+]\s*\(")
 _SOURCE_LIST_PATTERN = re.compile(r"(?i)\b(?:sources?|references?)(?:\*\*)?\s*:")
 _NO_EVIDENCE = "[NO_EVIDENCE]"
 
 
-def format_answer_with_citations(response: QAResponse) -> str:
-    answer = response.answer.strip()
+@dataclass(frozen=True)
+class ValidatedAnswer:
+    text: str
+    citation_indices: tuple[int, ...]
+    no_evidence: bool
+
+
+def validate_answer(response: QAResponse) -> ValidatedAnswer:
+    answer = _CJK_CITATION_PATTERN.sub(r"[\1]", response.answer.strip())
     if not answer:
-        return answer
+        return ValidatedAnswer(text="", citation_indices=(), no_evidence=False)
     if _SOURCE_LIST_PATTERN.search(answer):
         raise ValueError("Answer must not contain a model-generated source list.")
     if "\n" in answer:
@@ -50,7 +61,11 @@ def format_answer_with_citations(response: QAResponse) -> str:
         explanation = answer.removeprefix(_NO_EVIDENCE).strip()
         if not explanation:
             raise ValueError("A no-evidence answer must include an explanation.")
-        return explanation
+        return ValidatedAnswer(
+            text=explanation,
+            citation_indices=(),
+            no_evidence=True,
+        )
     if not indices:
         raise ValueError("Answer must contain a citation or [NO_EVIDENCE].")
 
@@ -63,11 +78,23 @@ def format_answer_with_citations(response: QAResponse) -> str:
         invalid = ", ".join(f"[{index}]" for index in invalid_indices)
         raise ValueError(f"Answer contains unknown citation(s): {invalid}")
 
+    return ValidatedAnswer(
+        text=answer,
+        citation_indices=tuple(indices),
+        no_evidence=False,
+    )
+
+
+def format_answer_with_citations(response: QAResponse) -> str:
+    validated = validate_answer(response)
+    if not validated.text or validated.no_evidence:
+        return validated.text
+
     sources = []
-    for index in indices:
+    for index in validated.citation_indices:
         document, _ = response.retrieved_documents[index - 1]
         section = " > ".join(document.section_path)
         location = f" - {section}" if section else ""
         sources.append(f"- [{index}] {document.source_filename}{location}")
 
-    return f"{answer}\n\nSources:\n" + "\n".join(sources)
+    return f"{validated.text}\n\nSources:\n" + "\n".join(sources)
