@@ -27,3 +27,6 @@ CLAUDE.md
 .gemini
 
 .data
+
+# Evaluation artifacts
+rag-evaluation-report*.json
